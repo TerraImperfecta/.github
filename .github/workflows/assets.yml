@@ -30,7 +30,11 @@ concurrency:
 jobs:
   regenerate:
     name: assets match the generator
-    runs-on: ubuntu-latest
+    # Pinned, not ubuntu-latest. The generator needs Swift, which the 24.04
+    # image ships (6.4, as on the Mac) and the 26.04 image does not.
+    # ubuntu-latest moves to 26.04 in late 2026 (actions/runner-images#14748),
+    # and following it would break this job.
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     env:
       # Must match the version in tools/README.md: a different renderer can
@@ -39,7 +43,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      # Swift 6.4 is preinstalled on ubuntu-latest; resvg is not.
+      # Swift 6.4 is preinstalled on ubuntu-24.04; resvg is not.
       - name: Install resvg ${{ env.RESVG_VERSION }}
         run: |
           curl -fsSL "https://github.com/linebender/resvg/releases/download/v${RESVG_VERSION}/resvg-linux-x86_64.tar.gz" \
