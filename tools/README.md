@@ -17,8 +17,10 @@ swift tools/generate-profile-assets.swift
 
 ## Requirements
 
-- **Swift 6.4**, the version on this Mac and on GitHub's `ubuntu-latest`. The
-  generator is plain Swift and Foundation, with no packages.
+- **Swift 6.4**, the version on this Mac and on GitHub's `ubuntu-24.04`. The
+  generator is plain Swift and Foundation, with no packages. CI pins
+  `ubuntu-24.04` rather than `ubuntu-latest`, because the 26.04 image that
+  `ubuntu-latest` is moving to doesn't include Swift.
 - **`resvg` 0.48.1** on `PATH`, for the PNGs: `cargo install resvg --version
   0.48.1 --locked`. CI downloads the same version's release binary. Keep them in
   step, because a different renderer version can change the PNGs' bytes.

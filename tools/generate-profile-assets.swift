@@ -7,7 +7,7 @@
 // release binary, which is what CI uses. Keep the two on the same version.
 //
 // Plain Swift + Foundation, so it runs unchanged on macOS and on GitHub's
-// ubuntu-latest runners, which ship the same Swift.
+// ubuntu-24.04 runners, which ship the same Swift (26.04's image has none).
 //
 // All geometry comes from the kit files in tools/kit/, copied unmodified from
 // TerraImperfecta-brand-kit. Nothing here is drawn by hand: the mark's arcs,
