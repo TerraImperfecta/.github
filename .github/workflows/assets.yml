@@ -1,0 +1,86 @@
+# The profile assets are generated (tools/generate-profile-assets.swift). This
+# checks the committed files still match what the generator produces, so an edit
+# to one without the other cannot land unnoticed.
+#
+# GitHub-hosted only. This repo is public, and a self-hosted runner on a public
+# repo would run any PR's workflow on the machine. Hosted runners are free here.
+name: assets
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'tools/**'
+      - 'profile/assets/**'
+      - '.github/workflows/assets.yml'
+  pull_request:
+    paths:
+      - 'tools/**'
+      - 'profile/assets/**'
+      - '.github/workflows/assets.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: assets-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  regenerate:
+    name: assets match the generator
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      # Must match the version in tools/README.md: a different renderer can
+      # change the PNGs' bytes.
+      RESVG_VERSION: 0.48.1
+    steps:
+      - uses: actions/checkout@v7
+
+      # Swift 6.4 is preinstalled on ubuntu-latest; resvg is not.
+      - name: Install resvg ${{ env.RESVG_VERSION }}
+        run: |
+          curl -fsSL "https://github.com/linebender/resvg/releases/download/v${RESVG_VERSION}/resvg-linux-x86_64.tar.gz" \
+            | tar -xz -C "$RUNNER_TEMP"
+          echo "$RUNNER_TEMP" >> "$GITHUB_PATH"
+          "$RUNNER_TEMP/resvg" --version
+
+      - name: Regenerate
+        run: |
+          swift --version
+          swift tools/generate-profile-assets.swift
+
+      # The SVGs are plain text with fixed number formatting, so they must
+      # match byte for byte.
+      - name: SVGs match the generator
+        run: |
+          if ! git diff --exit-code --stat -- 'profile/assets/*.svg'; then
+            echo "::error::profile/assets SVGs differ from the generator — rerun 'swift tools/generate-profile-assets.swift' and commit"
+            exit 1
+          fi
+
+      # The PNGs are rendered on an arm64 Mac locally and on x86_64 here. With
+      # the same resvg version they should agree, but rasterisation is not
+      # guaranteed to be bit-identical across architectures, so a byte
+      # difference only warns. The size is still checked strictly.
+      - name: PNGs are the right size
+        run: |
+          python3 - <<'EOF'
+          import struct, sys
+          want = {"banner-light.png": (2560, 640), "banner-reversed.png": (2560, 640),
+                  "icon-light-512.png": (512, 512), "icon-reversed-512.png": (512, 512)}
+          bad = 0
+          for name, size in want.items():
+              with open(f"profile/assets/{name}", "rb") as f:
+                  head = f.read(24)
+              got = struct.unpack(">II", head[16:24])
+              ok = head[:8] == b"\x89PNG\r\n\x1a\n" and got == size
+              print(f"{'ok ' if ok else 'BAD'} {name}: {got[0]}x{got[1]} (want {size[0]}x{size[1]})")
+              bad += not ok
+          sys.exit(1 if bad else 0)
+          EOF
+          if ! git diff --quiet -- 'profile/assets/*.png'; then
+            echo "::warning::PNG bytes differ from the committed ones (arm64 vs x86_64 rasterisation); sizes are correct"
+          fi
